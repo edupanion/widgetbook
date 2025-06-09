@@ -50,16 +50,11 @@ abstract class Field<T> {
   @Deprecated('Fields should not be aware of their context')
   final void Function(BuildContext context, T? value)? onChanged;
 
-  /// A field is considered nullable if its [Knob.isNullable] is true, and
-  /// the param's value starts with [nullabilitySymbol] or is not defined.
+  /// A field is considered nullable if the param's value starts
+  /// with [nullabilitySymbol].
   bool isNull(Map<String, String> groupMap) {
-    // TODO: this is a temporary workaround until Knobs are refactored.
-    // Knobs's isNullable is not available here, so we have to check
-    // if the value is defined or not.
     final param = groupMap[name];
-    if (param == null) return true;
-
-    return param.startsWith(nullabilitySymbol);
+    return param?.startsWith(nullabilitySymbol) ?? false;
   }
 
   /// Extracts the value from [groupMap],
@@ -67,15 +62,7 @@ abstract class Field<T> {
   /// If the field value starts with [nullabilitySymbol], it will be
   /// interpreted as null.
   T? valueFrom(Map<String, String> groupMap) {
-    if (isNull(groupMap)) {
-      // A workaround to avoid returning null for non-nullable fields.
-      // TODO: remove this workaround when Knobs are refactored.
-      final param = groupMap[name];
-      if (param == null) return initialValue;
-
-      return null;
-    }
-
+    if (isNull(groupMap)) return null;
     return codec.toValue(groupMap[name]) ?? initialValue;
   }
 
