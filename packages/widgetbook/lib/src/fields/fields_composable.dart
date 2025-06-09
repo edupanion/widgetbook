@@ -8,11 +8,7 @@ import 'field_codec.dart';
 /// Interface for defining APIs for features that
 /// use [fields] as a building block.
 abstract class FieldsComposable<T> {
-  const FieldsComposable({
-    required this.name,
-    this.description,
-    this.isNullable = false,
-  });
+  const FieldsComposable({required this.name, this.description, this.isNullable = false});
 
   final String name;
   final String? description;
@@ -35,32 +31,16 @@ abstract class FieldsComposable<T> {
   Widget buildFields(BuildContext context) {
     final child = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: fields
-          .map(
-            (field) => Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: 4.0,
-              ),
-              child: field.build(context, groupName),
-            ),
-          )
-          .toList(),
+      children: fields.map((field) => Padding(padding: const EdgeInsets.symmetric(vertical: 4.0), child: field.build(context, groupName))).toList(),
     );
 
     return !isNullable
-        ? Setting(
-            name: name,
-            description: description,
-            child: child,
-          )
+        ? Setting(name: name, description: description, child: child)
         : NullableSetting(
             name: name,
             description: description,
             isNullified: isNullified(context),
-            onNullified: (isNullified) => toggleNullification(
-              context,
-              nullify: isNullified,
-            ),
+            onNullified: (isNullified) => toggleNullification(context, nullify: isNullified),
             child: child,
           );
   }
@@ -68,9 +48,7 @@ abstract class FieldsComposable<T> {
   /// Decodes the value of the [Field] with [name] from the query [group]
   /// using the [FieldCodec.toValue] from [Field.codec].
   TField? valueOf<TField>(String name, Map<String, String> group) {
-    final field = fields.firstWhere(
-      (field) => field.name == name,
-    ) as Field<TField>;
+    final field = fields.firstWhere((field) => field.name == name) as Field<TField>;
 
     return field.valueFrom(group);
   }
@@ -78,13 +56,9 @@ abstract class FieldsComposable<T> {
   /// Checks if this has been nullified by [toggleNullification].
   bool isNullified(BuildContext context) {
     final state = WidgetbookState.of(context);
-    final groupMap = FieldCodec.decodeQueryGroup(
-      state.queryParams[groupName],
-    );
+    final groupMap = FieldCodec.decodeQueryGroup(state.queryParams[groupName]);
 
-    return fields.every(
-      (field) => field.valueFrom(groupMap) == null,
-    );
+    return fields.every((field) => field.valueFrom(groupMap) == null);
   }
 
   /// Adds/removes [Field.nullabilitySymbol] to/from all [fields] depending on
@@ -114,9 +88,26 @@ abstract class FieldsComposable<T> {
       state.queryParams[groupName],
     );
 
-    fields.forEach((field) {
+    for (final field in fields) {
       final value = groupMap[field.name];
-      if (value == null) return;
+
+      if (value == null) {
+        if (nullify) {
+          final json = field.toFullJson();
+          final rawValue = json['value'] as String?;
+
+          if (rawValue == null) continue;
+
+          final nullishValue = '${Field.nullabilitySymbol}$rawValue';
+
+          state.updateQueryField(
+            group: groupName,
+            field: field.name,
+            value: nullishValue,
+          );
+        }
+        continue;
+      }
 
       final rawValue = value.replaceFirst(Field.nullabilitySymbol, '');
       final nullishValue = '${Field.nullabilitySymbol}$rawValue';
@@ -126,7 +117,7 @@ abstract class FieldsComposable<T> {
         field: field.name,
         value: nullify ? nullishValue : rawValue,
       );
-    });
+    }
   }
 
   Map<String, dynamic> toJson();
